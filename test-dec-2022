@@ -1,0 +1,85 @@
+
+
+
+
+provider "aws" {
+  region = "us-west-2"  
+}
+
+
+resource "aws_vpc" "partnership_vpc" {
+  cidr_block = "10.0.0.0/16"
+ 
+}
+
+
+resource "aws_subnet" "partnership_subnet" {
+  vpc_id     = aws_vpc.partnership_vpc.id
+  cidr_block = "10.0.0.0/24"
+  
+}
+
+
+resource "aws_security_group" "partnership_sg" {
+  vpc_id = aws_vpc.partnership_vpc.id
+  
+}
+
+
+resource "aws_db_instance" "partnership_db" {
+  engine           = "mysql"  
+  instance_class   = "db.t2.micro" 
+  allocated_storage = 20  
+  vpc_security_group_ids = [aws_security_group.partnership_sg.id]
+  
+}
+
+
+resource "aws_eks_cluster" "partnership_cluster" {
+  name     = "partnership-cluster"
+  role_arn = "arn:aws:iam::123456789012:role/eks-cluster-role"  
+  version  = "1.21"   
+  vpc_config {
+    subnet_ids = [aws_subnet.partnership_subnet.id]
+  }
+ 
+}
+
+
+resource "aws_cloudwatch_metric_alarm" "cluster_health_alarm" {
+  alarm_name          = "partnership-cluster-health-alarm"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "CPUUtilization"
+  namespace           = "EKS"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 50  
+  alarm_description   = "Partnership cluster CPU utilization is below threshold"
+  alarm_actions       = ["arn:aws:sns:us-west-2:123456789012:partnership-cluster-alert"]
+  dimensions = {
+    ClusterName = aws_eks_cluster.partnership_cluster.name
+  }
+}
+
+
+resource "aws_sns_topic" "cluster_alert_topic" {
+  name = "partnership-cluster-alert"
+}
+
+
+resource "aws_sns_topic_subscription" "cluster_alert_subscription" {
+  topic_arn = aws_sns_topic.cluster_alert_topic.arn
+  protocol  = "email"
+  endpoint  = "narendrachinu319@gmail.com"
+}
+
+
+resource "aws_lambda_function" "cluster_recovery_function" {
+  function_name = "partnership-cluster-recovery"
+  handler       = "handler"
+  runtime       = "nodejs14.x"
+ 
+}
+resource "aws_cloudwatch_event_rule" "cluster_recovery_rule" {
+  name   
